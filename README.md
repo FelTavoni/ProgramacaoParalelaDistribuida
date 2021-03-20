@@ -1,4 +1,4 @@
-# Programaçãoo Paralela e Distribuída
+# Programação Paralela e Distribuída
 
 Seja bem vindo! Repositório pessoal referente à displina Programaçãoo Paralela e Distribuída. Local usado para armazenar os trabalhos da disciplina, assim como programas relacionados ao assunto.
 
