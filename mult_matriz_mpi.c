@@ -18,7 +18,6 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <time.h>
-#include <omp.h>
 #include "mpi.h"
 
 MPI_Status status;
