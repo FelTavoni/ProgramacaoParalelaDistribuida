@@ -9,6 +9,8 @@ Seja bem vindo! Repositório pessoal referente à displina Programação Paralel
     - Programa para análise de paralelização sobre multiplicação de matrizes, utilizando MPI. É necessário possui a extensão MPI. Para compilação, usar `mpicc mult_matriz_mpi.c -o mult_matriz_mpi` e para execução `mpirun -np <numero-de-processos> ./mult_matriz_mpi`.
 - [mult_matriz_cuda.cu](https://github.com/FelTavoni/ProgramacaoParalelaDistribuida/blob/main/mult_matriz_cuda.cu)
     - Programa para análise de paralelização sobre multiplicação de matrizes, utilizando o recurso de GPU por meio da CUDA. É necessário possuir, para execução, o *CUDA Development Toolkit*. Para compilação, usar `nvcc mult_matriz_cuda.cu -o mult_matriz_cuda.exe` e para execução `mult_matriz_cuda.exe` (para Windows).
+- [CrivoDeEratostenes](CrivoDeEratostenes)
+    - Estudo sobre estratégias de paralelização ao algoritmo de Eratostenes.
 
 ### Autor
 
