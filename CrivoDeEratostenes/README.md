@@ -1,8 +1,9 @@
 # O Crivo de Eratostenes
 
 O estudo seguinte apresenta 3 diferentes propostas de paralelização ao algoritmo desenvolvido pelo matemático grego *Eratóstenes*, o terceiro bibliotecário-chefe da Biblioteca de Alexandria, no qual consiste em localizar todos os números primos de um intervalo n.
-
-<img src="https://upload.wikimedia.org/wikipedia/commons/b/b9/Sieve_of_Eratosthenes_animation.gif" alt="Sieve of Eratosthenes Example" style="display: block; margin: auto; width: 50%;">
+<div align="center">
+    <img src="https://upload.wikimedia.org/wikipedia/commons/b/b9/Sieve_of_Eratosthenes_animation.gif" alt="Sieve of Eratosthenes Example" style="width: 50%;">
+</div>
 
 ---
 
