@@ -7,15 +7,14 @@
 
 This project still under development and the next updates will be aiming the following tasks:
 
-- [ ] Threads throw an error if all positions exceded the temperature
-- [ ] Run all tests
-- [ ] A more detailed explanation of the CUDA code on READMe
+- [ ] Allocation problems (Trying to linearize the matrix);
+- [ ] A more detailed explanation of the CUDA code on READMe.
 
 ## 💻 Prerequisites
 
 Before you start, check if you have matched the following requisites:
-* Instal the following tools and their versions `< C \ CUDA >`
-* Windows as OS
+* Instal the following tools and their versions `< C \ CUDA >`.
+* Windows as OS.
 
 ## 🚀 Compiling FDM in Heat Equation
 

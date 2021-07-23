@@ -73,7 +73,7 @@ __global__ void mdf_heat_check(double ***  __restrict__ u0,
                             const unsigned int* npZ,
                             const double* inErr,
                             const double* boundaries,
-                            double* heated){
+                            volatile int* heated){
 
     const unsigned int x = blockIdx.x * blockDim.x + threadIdx.x;
     const unsigned int y = blockIdx.y * blockDim.y + threadIdx.y;
@@ -81,70 +81,129 @@ __global__ void mdf_heat_check(double ***  __restrict__ u0,
 
     // If all the positions are heated more than 100, finish the iteration.
     double err = 0.0f;
-    double maxErr = 0.0f;
     err = fabs(u0[z][y][x] - (*boundaries));
-    if (err > (*inErr))
-      (*heated)++;
+    if (*heated && (err < (*inErr)))
+        *heated = 0;
 }
 
-int onDevice(double*** h_u0, double*** h_u1, double h_npX, double h_npY, double h_npZ, double h_deltaH, double h_deltaT) {
+int onDevice(double*** h_u0, double*** h_u1, unsigned int h_npX, unsigned int h_npY, unsigned int h_npZ, double h_deltaH, double h_deltaT) {
 
-  // Define variables to be used in GPU.
-  double ***d_u0;
-  double ***d_u1;
-  double *d_deltaT; //0.01;
-  double *d_deltaH;  //0.25f;
-  double *d_npX;  //1.0f;
-  double *d_npY;  //1.0f;
-  double *d_npZ;  //1.0f;
+    // For debbugging purposes
+    cudaError_t err = cudaGetLastError();
 
-  // double *inErr;
-  // double *boundaries;
-  double d_alpha = h_deltaT / (h_deltaH * h_deltaH);
+    // Define variables to be used in GPU.
+    double ***d_u0;
+    double ***d_u1;
+    double *d_deltaT; //0.01;
+    double *d_deltaH;  //0.25f;
+    unsigned int *d_npX;  //1.0f;
+    unsigned int *d_npY;  //1.0f;
+    unsigned int *d_npZ;  //1.0f;
+    double boundaries = 100.0f;
+    double *d_boundaries;
+    double inErr = 1e-15;
+    double *d_inErr;
 
-  cudaMalloc((void**)&d_deltaT, sizeof(double));
-  cudaMalloc((void**)&d_deltaH, sizeof(double));
-  cudaMalloc((void**)&d_npX, sizeof(double));
-  cudaMemcpy(d_npX, &h_npX, sizeof(double), cudaMemcpyHostToDevice);
-  cudaMalloc((void**)&d_npY, sizeof(double));
-  cudaMemcpy(d_npY, &h_npY, sizeof(double), cudaMemcpyHostToDevice);
-  cudaMalloc((void**)&d_npZ, sizeof(double));
-  cudaMemcpy(d_npZ, &h_npZ, sizeof(double), cudaMemcpyHostToDevice);
+    // double *inErr;
+    // double *boundaries;
+    double *d_alpha;
+    *d_alpha = h_deltaT / (h_deltaH * h_deltaH);
 
-  // Allocate memory inside the GPU.
-  cudaMalloc((void**)d_u0, h_npZ * sizeof(double**));
-  cudaMalloc((void**)d_u1, h_npZ * sizeof(double**));
+    printf("I'M HERE - NUMBER ONE!!!\n");
+    fflush(stdout);
 
-  for (unsigned int i = 0; i < h_npZ; i++){
-      cudaMalloc((void**)d_u0[i], h_npY * sizeof(double*));
-      cudaMalloc((void**)d_u1[i], h_npY * sizeof(double*));
-  }
+    cudaMalloc((void**)&d_deltaT, sizeof(double));
+    printf("I'M HERE - NUMBER TWO!!!\n");
+    fflush(stdout);
+    if (err != cudaSuccess) 
+        printf("Error: %s\n", cudaGetErrorString(err));
+    cudaMalloc((void**)&d_deltaH, sizeof(double));
+    cudaMalloc((void**)&d_npX, sizeof(double));
+    cudaMemcpy(d_npX, &h_npX, sizeof(double), cudaMemcpyHostToDevice);
+    cudaMalloc((void**)&d_npY, sizeof(double));
+    cudaMemcpy(d_npY, &h_npY, sizeof(double), cudaMemcpyHostToDevice);
+    cudaMalloc((void**)&d_npZ, sizeof(double));
+    cudaMemcpy(d_npZ, &h_npZ, sizeof(double), cudaMemcpyHostToDevice);
+    cudaMalloc((void**)&d_boundaries, sizeof(double));
+    cudaMemcpy(d_boundaries, &boundaries, sizeof(double), cudaMemcpyHostToDevice);
+    cudaMalloc((void**)&d_inErr, sizeof(double));
+    cudaMemcpy(d_inErr, &inErr, sizeof(double), cudaMemcpyHostToDevice);
 
-  for (unsigned int i = 0; i < h_npZ; i++){
-      for (unsigned int j = 0; j < h_npY; j++){
-          double *d_aux0;
-          double *d_aux1;
-          cudaMalloc((void**)d_aux0, h_npX * sizeof(double));
-          cudaMalloc((void**)d_aux1, h_npX * sizeof(double));
-          // Initial condition - zero in all points
-          cudaMemset((void*)d_aux0, 0, h_npX * sizeof(double));
-          cudaMemset((void*)d_aux1, 0, h_npX * sizeof(double));
-          d_u0[i][j] = d_aux0;
-          d_u1[i][j] = d_aux1;
-      }
-  }
+
+    // Allocate memory inside the GPU.
+    cudaMalloc((void**)d_u0, h_npZ * sizeof(double**));
+    cudaMalloc((void**)d_u1, h_npZ * sizeof(double**));
+    printf("I'M HERE - NUMBER TWO AND A HALF!!!\n");
+    fflush(stdout);
+    if (err != cudaSuccess) 
+        printf("Error: %s\n", cudaGetErrorString(err));
+
+    for (unsigned int i = 0; i < h_npZ; i++){
+        cudaMalloc((void**)d_u0[i], h_npY * sizeof(double*));
+        cudaMalloc((void**)d_u1[i], h_npY * sizeof(double*));
+    }
+
+    printf("I'M HERE - NUMBER FOUR!!!\n");
+    fflush(stdout);
+    if (err != cudaSuccess) 
+        printf("Error: %s\n", cudaGetErrorString(err));
+
+    for (unsigned int i = 0; i < h_npZ; i++){
+        for (unsigned int j = 0; j < h_npY; j++){
+            double *d_aux0;
+            double *d_aux1;
+            cudaMalloc((void**)&d_aux0, h_npX * sizeof(double));
+            cudaMalloc((void**)&d_aux1, h_npX * sizeof(double));
+            // Initial condition - zero in all points
+            cudaMemset((void*)&d_aux0, 0, h_npX * sizeof(double));
+            cudaMemset((void*)&d_aux1, 0, h_npX * sizeof(double));
+            d_u0[i][j] = d_aux0;
+            d_u1[i][j] = d_aux1;
+        }
+    }
+
+    printf("I'M HERE - NUMBER SUCCESS?!?!\n");
+    fflush(stdout);
+    if (err != cudaSuccess) 
+        printf("Error: %s\n", cudaGetErrorString(err));
+
+  double steps = 0;
+
+  volatile int *heated;
+  *heated = 0;
+  volatile int *d_heated;
+  cudaMalloc((void**)&d_heated, sizeof(int));
+  cudaMemcpy(&d_heated, &heated, sizeof(int), cudaMemcpyHostToDevice);
 
   // Defining the grid.
   dim3 threadsPerBlock(4, 4, 4); // 4 * 4 * 4 = 64 threads = 2 warps!
   dim3 blocksPerGrid(ceil( (double)h_npX/64), ceil( (double)h_npY/64), ceil( (double)h_npZ/64)); // Dividing the cube into (x*y*z)/64 minicubes.
 
-  // Calling the kernel for heat function.
-  mdf_heat_once<<blocksPerGrid, threadsPerBlock>>(d_u0, d_u1, d_npX, d_npY, d_npZ, d_deltaH, d_deltaT, d_alpha, 1e-15, 100.0f);
+    while (!(*heated)) {
+        
+        steps++;
 
-  // Switch the cubes, since the previous won't be reused, so we don't need to allocate more memory.
-  double ***ptr = d_u0;
-  d_u0 = d_u1;
-  d_u1 = ptr;
+        *heated = 1;
+        cudaMemcpy(&d_heated, &heated, sizeof(int), cudaMemcpyHostToDevice);
+
+        // Calling the kernel for heat function.
+        mdf_heat_once<<<blocksPerGrid, threadsPerBlock>>>(d_u0, d_u1, d_npX, d_npY, d_npZ, d_deltaH, d_deltaT, d_alpha, d_inErr, d_boundaries);
+        if (err != cudaSuccess) 
+            printf("Error: %s\n", cudaGetErrorString(err));
+
+        // Switch the cubes, since the previous won't be reused, so we don't need to allocate more memory.
+        double ***ptr = d_u0;
+        d_u0 = d_u1;
+        d_u1 = ptr;
+
+        mdf_heat_check<<<blocksPerGrid, threadsPerBlock>>>(d_u0, d_u1, d_npX, d_npY, d_npZ, d_inErr, d_boundaries, d_heated);
+        if (err != cudaSuccess) 
+            printf("Error: %s\n", cudaGetErrorString(err));
+
+        cudaMemcpy(&d_heated, &heated, sizeof(int), cudaMemcpyDeviceToHost);
+    }
+
+    printf("Steps: %.1lf\n", steps);
 
   // Free the space in GPU.
   return EXIT_SUCCESS;
