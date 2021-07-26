@@ -7,7 +7,7 @@
 
 This project still under development and the next updates will be aiming the following tasks:
 
-- [ ] Allocation problems (Trying to linearize the matrix);
+- [ ] Allocation problems;
 - [ ] A more detailed explanation of the CUDA code on READMe.
 
 ## 💻 Prerequisites

@@ -16,8 +16,8 @@
 #define STABILITY 1.0f/sqrt(3.0f)
 
 
-__global__ void mdf_heat_once(double ***  __restrict__ u0, 
-                            double ***  __restrict__ u1, 
+__global__ void mdf_heat_once(double*  __restrict__ u0, 
+                            double*  __restrict__ u1, 
                             const unsigned int* npX, 
                             const unsigned int* npY, 
                             const unsigned int* npZ,
@@ -31,6 +31,8 @@ __global__ void mdf_heat_once(double ***  __restrict__ u0,
     const unsigned int y = blockIdx.y * blockDim.y + threadIdx.y;
     const unsigned int z = blockIdx.z * blockDim.z + threadIdx.z;
 
+    // z + ((*npZ) * y) + ((*npZ) * (*npY) * x)
+
     // For each position on the grid, spread the heat, adjusting the neighboorhood.
     double left   = *boundaries;
     double right  = *boundaries;
@@ -42,32 +44,32 @@ __global__ void mdf_heat_once(double ***  __restrict__ u0,
     if ((x <= (*npX)) && (y <= (*npY)) && (z <= (*npZ))) {
     
         if ((x > 0) && (x < ((*npX) - 1))){
-          left  = u0[z][y][x-1];
-          right = u0[z][y][x+1];
-        }else if (x == 0) right = u0[z][y][x+1];
-        else left = u0[z][y][x-1];
+          left  = u0[z + ((*npZ) * y) + ((*npZ) * (*npY) * x-1)];
+          right = u0[z + ((*npZ) * y) + ((*npZ) * (*npY) * x+1)];
+        }else if (x == 0) right = u0[z + ((*npZ) * y) + ((*npZ) * (*npY) * x+1)];
+        else left = u0[z + ((*npZ) * y) + ((*npZ) * (*npY) * x-1)];
         
         if ((y > 0) && (y < ((*npY) - 1))){
-          up  = u0[z][y-1][x];
-          down = u0[z][y+1][x];
-        }else if (y == 0) down = u0[z][y+1][x];
-        else up = u0[z][y-1][x];
+          up  = u0[z + ((*npZ) * y-1) + ((*npZ) * (*npY) * x)];
+          down = u0[z + ((*npZ) * y+1) + ((*npZ) * (*npY) * x)];
+        }else if (y == 0) down = u0[z + ((*npZ) * y+1) + ((*npZ) * (*npY) * x)];
+        else up = u0[z + ((*npZ) * y-1) + ((*npZ) * (*npY) * x)];
         
         if ((z > 0) && (z < ((*npZ) - 1))){
-          top  = u0[z-1][y][x];
-          bottom = u0[z+1][y][x];
-        }else if (z == 0) bottom = u0[z+1][y][x];
-        else top = u0[z-1][y][x];
+          top  = u0[z-1 + ((*npZ) * y) + ((*npZ) * (*npY) * x)];
+          bottom = u0[z+1 + ((*npZ) * y) + ((*npZ) * (*npY) * x)];
+        }else if (z == 0) bottom = u0[z+1 + ((*npZ) * y) + ((*npZ) * (*npY) * x)];
+        else top = u0[z-1 + ((*npZ) * y) + ((*npZ) * (*npY) * x)];
         
         // Simply applying the formula and stores the value on a new spot.
-        u1[z][y][x] =  (*alpha) * ( top + bottom + up + down + left + right  - (6.0f * u0[z][y][x] )) + u0[z][y][x];
+        u1[z + ((*npZ) * y) + ((*npZ) * (*npY) * x)] =  (*alpha) * ( top + bottom + up + down + left + right  - (6.0f * u0[z + ((*npZ) * y) + ((*npZ) * (*npY) * x)] )) + u0[z + ((*npZ) * y) + ((*npZ) * (*npY) * x)];
 
     }
                 
 }
 
-__global__ void mdf_heat_check(double ***  __restrict__ u0, 
-                            double ***  __restrict__ u1, 
+__global__ void mdf_heat_check(double*  __restrict__ u0, 
+                            double*  __restrict__ u1, 
                             const unsigned int* npX, 
                             const unsigned int* npY, 
                             const unsigned int* npZ,
@@ -81,94 +83,60 @@ __global__ void mdf_heat_check(double ***  __restrict__ u0,
 
     // If all the positions are heated more than 100, finish the iteration.
     double err = 0.0f;
-    err = fabs(u0[z][y][x] - (*boundaries));
+    err = fabs(u0[z + ((*npZ) * y) + ((*npZ) * (*npY) * x)] - (*boundaries));
     if (*heated && (err < (*inErr)))
         *heated = 0;
 }
 
-int onDevice(double*** h_u0, double*** h_u1, unsigned int h_npX, unsigned int h_npY, unsigned int h_npZ, double h_deltaH, double h_deltaT) {
+int onDevice(unsigned int h_npX, unsigned int h_npY, unsigned int h_npZ, double h_deltaH, double h_deltaT, double h_alpha, double h_boundaries, double h_inErr) {
 
     // For debbugging purposes
     cudaError_t err = cudaGetLastError();
 
-    // Define variables to be used in GPU.
-    double ***d_u0;
-    double ***d_u1;
+    // Allocate variables in the GPU and copy they content from host.
     double *d_deltaT; //0.01;
     double *d_deltaH;  //0.25f;
     unsigned int *d_npX;  //1.0f;
     unsigned int *d_npY;  //1.0f;
     unsigned int *d_npZ;  //1.0f;
-    double boundaries = 100.0f;
+    // Constant variables.
     double *d_boundaries;
-    double inErr = 1e-15;
     double *d_inErr;
-
-    // double *inErr;
-    // double *boundaries;
     double *d_alpha;
-    *d_alpha = h_deltaT / (h_deltaH * h_deltaH);
 
     printf("I'M HERE - NUMBER ONE!!!\n");
     fflush(stdout);
+    if (err != cudaSuccess) 
+        printf("Error: %s\n", cudaGetErrorString(err));
 
     cudaMalloc((void**)&d_deltaT, sizeof(double));
-    printf("I'M HERE - NUMBER TWO!!!\n");
-    fflush(stdout);
-    if (err != cudaSuccess) 
-        printf("Error: %s\n", cudaGetErrorString(err));
+    cudaMemcpy(&d_deltaT, &h_deltaT, sizeof(double), cudaMemcpyHostToDevice);
     cudaMalloc((void**)&d_deltaH, sizeof(double));
+    cudaMemcpy(&d_deltaH, &h_deltaH, sizeof(double), cudaMemcpyHostToDevice);
     cudaMalloc((void**)&d_npX, sizeof(double));
-    cudaMemcpy(d_npX, &h_npX, sizeof(double), cudaMemcpyHostToDevice);
+    cudaMemcpy(&d_npX, &h_npX, sizeof(double), cudaMemcpyHostToDevice);
     cudaMalloc((void**)&d_npY, sizeof(double));
-    cudaMemcpy(d_npY, &h_npY, sizeof(double), cudaMemcpyHostToDevice);
+    cudaMemcpy(&d_npY, &h_npY, sizeof(double), cudaMemcpyHostToDevice);
     cudaMalloc((void**)&d_npZ, sizeof(double));
-    cudaMemcpy(d_npZ, &h_npZ, sizeof(double), cudaMemcpyHostToDevice);
+    cudaMemcpy(&d_npZ, &h_npZ, sizeof(double), cudaMemcpyHostToDevice);
     cudaMalloc((void**)&d_boundaries, sizeof(double));
-    cudaMemcpy(d_boundaries, &boundaries, sizeof(double), cudaMemcpyHostToDevice);
+    cudaMemcpy(&d_boundaries, &h_boundaries, sizeof(double), cudaMemcpyHostToDevice);
     cudaMalloc((void**)&d_inErr, sizeof(double));
-    cudaMemcpy(d_inErr, &inErr, sizeof(double), cudaMemcpyHostToDevice);
+    cudaMemcpy(&d_inErr, &h_inErr, sizeof(double), cudaMemcpyHostToDevice);
 
-
-    // Allocate memory inside the GPU.
-    cudaMalloc((void**)d_u0, h_npZ * sizeof(double**));
-    cudaMalloc((void**)d_u1, h_npZ * sizeof(double**));
-    printf("I'M HERE - NUMBER TWO AND A HALF!!!\n");
-    fflush(stdout);
-    if (err != cudaSuccess) 
-        printf("Error: %s\n", cudaGetErrorString(err));
-
-    for (unsigned int i = 0; i < h_npZ; i++){
-        cudaMalloc((void**)d_u0[i], h_npY * sizeof(double*));
-        cudaMalloc((void**)d_u1[i], h_npY * sizeof(double*));
-    }
-
-    printf("I'M HERE - NUMBER FOUR!!!\n");
-    fflush(stdout);
-    if (err != cudaSuccess) 
-        printf("Error: %s\n", cudaGetErrorString(err));
-
-    for (unsigned int i = 0; i < h_npZ; i++){
-        for (unsigned int j = 0; j < h_npY; j++){
-            double *d_aux0;
-            double *d_aux1;
-            cudaMalloc((void**)&d_aux0, h_npX * sizeof(double));
-            cudaMalloc((void**)&d_aux1, h_npX * sizeof(double));
-            // Initial condition - zero in all points
-            cudaMemset((void*)&d_aux0, 0, h_npX * sizeof(double));
-            cudaMemset((void*)&d_aux1, 0, h_npX * sizeof(double));
-            d_u0[i][j] = d_aux0;
-            d_u1[i][j] = d_aux1;
-        }
-    }
-
-    printf("I'M HERE - NUMBER SUCCESS?!?!\n");
+    // Allocate memory inside the GPU for the grid. Here the matrix is flattened.
+    double *d_u0;
+    double *d_u1;
+    cudaMalloc((void**)&d_u0, h_npZ * h_npY * h_npX * sizeof(double));
+    cudaMemset((void**)&d_u0, 0x00, h_npZ * h_npY * h_npX * sizeof(double));
+    cudaMalloc((void**)&d_u1, h_npZ * h_npY * h_npX * sizeof(double));
+    cudaMemset((void**)&d_u1, 0x00, h_npZ * h_npY * h_npX * sizeof(double));
+    printf("I'M HERE - NUMBER TWO!!!\n");
     fflush(stdout);
     if (err != cudaSuccess) 
         printf("Error: %s\n", cudaGetErrorString(err));
 
   double steps = 0;
-
   volatile int *heated;
   *heated = 0;
   volatile int *d_heated;
@@ -192,7 +160,7 @@ int onDevice(double*** h_u0, double*** h_u1, unsigned int h_npX, unsigned int h_
             printf("Error: %s\n", cudaGetErrorString(err));
 
         // Switch the cubes, since the previous won't be reused, so we don't need to allocate more memory.
-        double ***ptr = d_u0;
+        double *ptr = d_u0;
         d_u0 = d_u1;
         d_u1 = ptr;
 
@@ -211,13 +179,18 @@ int onDevice(double*** h_u0, double*** h_u1, unsigned int h_npX, unsigned int h_
 
 int onHost() {
   // Define variables to be used in the process
-  double ***h_u0;
-  double ***h_u1;
   double h_deltaT = 0.0f; //0.01;
   double h_deltaH =0.0f;  //0.25f;
   double h_sizeX = 0.0f;  //1.0f;
   double h_sizeY = 0.0f;  //1.0f;
   double h_sizeZ = 0.0f;  //1.0f;
+
+  // Some constants defined in the description.
+  double boundaries = 100.0f;
+  double inErr = 1e-15;
+
+  // Alpha constant in formula.
+  double alpha;
 
   // Read input
   fscanf(stdin, "%lf", &h_deltaT);
@@ -231,50 +204,12 @@ int onHost() {
   unsigned int h_npY = (unsigned int) (h_sizeY / h_deltaH);
   unsigned int h_npZ = (unsigned int) (h_sizeZ / h_deltaH);
 
-  //printf("p(%u, %u, %u)\n", npX, npY, npZ);
-  //Allocing memory
-  // Allocating a 3-dimensional grid, used to build the cube.
-  // u0 and u1 are the cubes structure. u0 holds the value of the `t` condtion and u1 the `t+1` condition.
-  h_u0 = (double***) malloc (h_npZ * sizeof(double**));
-  h_u1 = (double***) malloc (h_npZ * sizeof(double**));
-
-  for (unsigned int i = 0; i < h_npZ; i++){
-      h_u0[i] = (double**) malloc (h_npY * sizeof(double*));
-      h_u1[i] = (double**) malloc (h_npY * sizeof(double*));
-  }
-
-  for (unsigned int i = 0; i < h_npZ; i++){
-      for (unsigned int j = 0; j < h_npY; j++){
-          double *h_aux0 = (double *) malloc (h_npX * sizeof(double));
-          double *h_aux1 = (double *) malloc (h_npX * sizeof(double));
-          //initial condition - zero in all points
-          memset(h_aux0, 0x00, h_npX * sizeof(double));
-          memset(h_aux1, 0x00, h_npX * sizeof(double));
-          h_u0[i][j] = h_aux0;
-          h_u1[i][j] = h_aux1;
-      }
-  }
+  alpha = h_deltaT / (h_deltaH * h_deltaH);
 
   // Call the device to calculate the heating.
-  onDevice(h_u0, h_u1, h_npX, h_npY, h_npZ, h_deltaH, h_deltaT);
+  onDevice(h_npX, h_npY, h_npZ, h_deltaH, h_deltaT, alpha, boundaries, inErr);
   // mdf_heat(h_u0, h_u1, h_npX, h_npY, h_npZ, h_deltaH, h_deltaT, 1e-15, 100.0f);
   //mdf_print(u1,  npX, npY, npZ);
-
-  //Free memory
-  for (unsigned int i = 0; i < h_npZ; i++){
-      for (unsigned int j = 0; j < h_npY; j++){
-          free(h_u0[i][j]);
-          free(h_u1[i][j]);
-      }
-  }
-
-  for (unsigned int i = 0; i < h_npZ; i++){
-      free(h_u0[i]);
-      free(h_u1[i]);
-  }
-
-  free(h_u0);
-  free(h_u1);
 
   return EXIT_SUCCESS;
 }
