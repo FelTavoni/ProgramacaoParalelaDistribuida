@@ -7,7 +7,8 @@
 
 This project still under development and the next updates will be aiming the following tasks:
 
-- [ ] Allocation problems;
+- [X] Allocation problems;
+- [ ] RUn the program correctly. It seems the program is not "heating" the cube...
 - [ ] A more detailed explanation of the CUDA code on READMe.
 
 ## 💻 Prerequisites
