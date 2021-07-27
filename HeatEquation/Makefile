@@ -9,14 +9,11 @@ LINK     =  $(LIBDIR) $(LIBS)
 
 CPU_COMPILE = $(CPUCC) $(DEFS) $(INCLUDES) $(CPPFLAGS)
 
+all: seq cuda
 
-all: mdf
-
+seq:
+	$(CPU_COMPILE) -c mdf.c
 	$(CPU_COMPILE)	mdf.o $(LINK) -o $(EXEFILE) $(PAPILIBS)
 
-mdf:
-	$(CPU_COMPILE) -c mdf.c
-
-
-clean:
-	rm *.o mdf
+cuda:
+	nvcc mdf_cuda.cu -o mdf_cuda.exe

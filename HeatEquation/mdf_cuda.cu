@@ -31,6 +31,7 @@ __global__ void mdf_heat_once(double*  __restrict__ u0,
 	const unsigned int y = blockIdx.y * blockDim.y + threadIdx.y;
 	const unsigned int x = blockIdx.z * blockDim.z + threadIdx.z;
 
+	// 3d flattened matrix:
 	// x + (width * y) + (width * height * z)
 	// which is: z + ((*npZ) * y) + ((*npZ) * (*npY) * x)
 
@@ -40,8 +41,6 @@ __global__ void mdf_heat_once(double*  __restrict__ u0,
 	double down   = *boundaries;
 	double top    = *boundaries;
 	double bottom = *boundaries;
-
-	// printf("Accessing (%d, %d, %d)\n", z, y, x);
 
 	if ((z < (*npZ)) && (y < (*npY)) && (x < (*npX))) {
 
@@ -72,10 +71,8 @@ __global__ void mdf_heat_once(double*  __restrict__ u0,
 		// Simply applying the formula and stores the value on a new spot.
 		u1[z + ((*npZ) * y) + ((*npZ) * (*npY) * x)] =  (*alpha) * ( top + bottom + up + down + left + right  - (6.0f * u0[z + ((*npZ) * y) + ((*npZ) * (*npY) * x)] )) + u0[z + ((*npZ) * y) + ((*npZ) * (*npY) * x)];
 
-	} else {
+		// printf("(%d, %d, %d) is %lf\n", z, y, x, u1[z + ((*npZ) * y) + ((*npZ) * (*npY) * x)]);
 
-		printf("(%d, %d, %d) out of bounds\n", z, y, x);
-		
 	}
 
 }
@@ -147,56 +144,59 @@ int onDevice(unsigned int h_npX, unsigned int h_npY, unsigned int h_npZ, double 
 	int *d_heated;
 	cudaMalloc((void**)&d_heated, sizeof(int));
 
+	double *ufo;
+	ufo = (double*)malloc(h_npZ * h_npY * h_npX * sizeof(double));
+
 	// Defining the grid.
 	dim3 threadsPerBlock(4, 4, 4); // 4 * 4 * 4 = 64 threads = 2 warps!
 	dim3 blocksPerGrid(ceil( (double)h_npZ/4), ceil( (double)h_npY/4), ceil( (double)h_npX/4));
 
-	do {
+	double dif = 0.0f;
+
+	while (!heated) {
 
 		steps++;
-		heated = 1;
 
 		cudaMemcpy(d_heated, &heated, sizeof(int), cudaMemcpyHostToDevice);
 
 		// Calling the kernel for heat function.
 		mdf_heat_once<<<blocksPerGrid, threadsPerBlock>>>(d_u0, d_u1, d_npX, d_npY, d_npZ, d_deltaH, d_deltaT, d_alpha, d_inErr, d_boundaries);
-		printf("WE'RE IN!!! STEP %lf\n", steps);
-
-		double *ufo;
-		ufo = (double*)malloc(h_npZ * h_npY * h_npX * sizeof(double));
-		cudaMemcpy(ufo, d_u0, h_npZ * h_npY * h_npX * sizeof(double), cudaMemcpyDeviceToHost);
-
+		// printf("WE'RE IN!!! STEP %lf\n", steps);
 		cudaDeviceSynchronize();
-
-		// for (int l = 0; l < h_npZ * h_npY * h_npX; l++) {
-		// 	if (ufo[l] > 0.0)
-		// 		printf("l = %d", l);
-		// }
 
 		err = cudaGetLastError();
 		if (err != cudaSuccess) 
-			printf("Error on 128: %s\n", cudaGetErrorString(err));
+			printf("Error: %s\n", cudaGetErrorString(err));
 
 		// Switch the cubes, since the previous won't be reused, so we don't need to allocate more memory.
 		double *ptr = d_u0;
 		d_u0 = d_u1;
 		d_u1 = ptr;
 
-		for (int l = 0; l < h_npZ * h_npY * h_npX; l++) {
-			if (ufo[l] < 100.0)
-				heated = 0;
-				break;
-		}
+		cudaMemcpy(ufo, d_u0, h_npZ * h_npY * h_npX * sizeof(double), cudaMemcpyDeviceToHost);
 
-		err = cudaGetLastError();
-		if (err != cudaSuccess) 
-			printf("Error on 128: %s\n", cudaGetErrorString(err));
+		for (int l = 0; l < h_npZ * h_npY * h_npX; l++) {
+			dif = fabs(ufo[l] - h_boundaries);
+			if (dif <= h_inErr)
+				heated = 1;
+		}
 
 		// cudaMemcpy(&heated, &d_heated, sizeof(int), cudaMemcpyDeviceToHost);
 
-	} while (!heated);
+	}
 
 	printf("Steps: %.1lf\n", steps);
+
+	FILE *file;
+	file = fopen("cuda_matrix.txt", "w");
+	for (unsigned int z = 0; z < h_npZ; z++){
+		for (unsigned int y = 0; y < h_npY; y++){
+			for (unsigned int x = 0; x < h_npX; x++){
+				fprintf(file, "%3.2lf ", ufo[z + (h_npX * y) + (h_npZ * h_npY * x)]);
+			}
+		}
+	}
+
 
 	// Free the space in GPU.
 	return EXIT_SUCCESS;

@@ -7,8 +7,7 @@
 
 This project still under development and the next updates will be aiming the following tasks:
 
-- [X] Allocation problems;
-- [ ] RUn the program correctly. It seems the program is not "heating" the cube...
+- [ ] CUDA returned answer is different from the sequential code. Check if it's a precision problem...
 - [ ] A more detailed explanation of the CUDA code on READMe.
 
 ## 💻 Prerequisites
@@ -23,23 +22,34 @@ To compile the program, simply run in command line:
 
 Windows:
 ```
-nvcc ___
+make
 ```
 
 ## ☕ Using FDM in Heat Equation
 
 To use the project FDM in Heat Equation, simply run the executable:
 
-Windows:
+- Windows:
+
+  - Sequential code:
+
+    ```
+    mdf.exe
+    ```
+
+  - Cuda code:
+
+    ```
+    mdf_cuda.exe
+    ```
+
+A input test is available, the `fdm.in` file. It's possible to execute it by running the following command.
+
 ```
-.exe
+mdf.exe < fdm.in
 ```
 
-The parameters of the program can be encountered in the marathon doc, found [here](). A example of use can be found bellow.
-
-```
-Example
-```
+The same for the cuda program.
 
 ## 🤝 Contributors
 
