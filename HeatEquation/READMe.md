@@ -1,14 +1,16 @@
 # FDM in Heat Equation
 
-> This repository implements a parallelized version of the FDM in Heat Equation proposed in the 14th Marathon of Parallel Programming presented by Universidade Mackenzie. More details about the code to be added...
+> This repository implements a parallelized version of the FDM in Heat Equation proposed in the 14th Marathon of Parallel Programming presented by Universidade Mackenzie. The problem consists of a cube, that is heated on every face of it, and the goal of the algorithm is to define how many time steps does it takes so that the cube if fully heated., but the algorithm for that can be very expensive. As a alternative solution, a algorithm that runs on GPU, implemented here, tries to reduce this time significantly. More details can be found at the marathon specification, [Problem E](http://lspd.mackenzie.br/marathon/19/problemset.pdf).
 
+<div align="center">
+<img src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTtjpTbTOgJlXtUd6mvN5wYuthdscoXTNtYEA&usqp=CAU" alt="3D Grid" width="40%">
+</div>
 
 ### ⚙️ Adjustments and improvements
 
 This project still under development and the next updates will be aiming the following tasks:
 
-- [ ] CUDA returned answer is different from the sequential code. Check if it's a precision problem...
-- [ ] A more detailed explanation of the CUDA code on READMe.
+- [ ] CUDA returned a answer different from the sequential code. Maybe it is a precision problem.
 
 ## 💻 Prerequisites
 

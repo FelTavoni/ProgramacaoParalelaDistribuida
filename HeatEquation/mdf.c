@@ -145,16 +145,6 @@ int main (int ac, char **av){
   
   mdf_heat(u0, u1, npX, npY, npZ, deltaH, deltaT, 1e-15, 100.0f);
   //mdf_print(u1,  npX, npY, npZ);
-  
-  FILE *file;
-	file = fopen("seq_matrix.txt", "w");
-	for (unsigned int i = 0; i < npZ; i++){
-		for (unsigned int j = 0; j < npY; j++){
-			for (unsigned int k = 0; k < npX; k++){
-				fprintf(file, "%3.2lf ", u0[i][j][k]);
-			}
-		}
-	}
 
   //Free memory
   for (unsigned int i = 0; i < npZ; i++){
