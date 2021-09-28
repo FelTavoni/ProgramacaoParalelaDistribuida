@@ -11,8 +11,6 @@ Seja bem vindo! Repositório pessoal referente à displina Programação Paralel
     - Programa para análise de paralelização sobre multiplicação de matrizes, utilizando o recurso de GPU por meio da CUDA. É necessário possuir, para execução, o *CUDA Development Toolkit*. Para compilação, usar `nvcc mult_matriz_cuda.cu -o mult_matriz_cuda.exe` e para execução `mult_matriz_cuda.exe` (para Windows).
 - [CrivoDeEratostenes](CrivoDeEratostenes)
     - Estudo sobre estratégias de paralelização ao algoritmo de Eratostenes.
-- [HeatEquation](HeatEquation)
-    - Paralelizado em GPU o código sequencial proposto pela 14th Maratona de programação paralela pela Universidade Mackenzie.
 
 ### Autor
 
